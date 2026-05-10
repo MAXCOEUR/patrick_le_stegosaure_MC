@@ -1,0 +1,6 @@
+{
+	"parent": "minecraft:item/generated",
+	"textures": {
+		"layer0": "patrick-le-stegosaure:item/patrick_spawn_egg"
+	}
+}

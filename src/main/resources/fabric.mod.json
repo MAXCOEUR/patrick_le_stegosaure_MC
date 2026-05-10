@@ -1,0 +1,38 @@
+{
+	"schemaVersion": 1,
+	"id": "patrick-le-stegosaure",
+	"version": "${version}",
+	"name": "Patrick Le Stegosaure",
+	"description": "This is an example description! Tell everyone what your mod is about!",
+	"authors": [
+		"Me!"
+	],
+	"contact": {
+		"homepage": "https://fabricmc.net/",
+		"sources": "https://github.com/FabricMC/fabric-example-mod"
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/patrick-le-stegosaure/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.patricklestegosaure.PatrickLeStegosaure"
+		],
+		"client": [
+			"com.patricklestegosaure.client.PatrickLeStegosaureClient"
+		]
+	},
+	"mixins": [
+		"patrick-le-stegosaure.mixins.json",
+		{
+			"config": "patrick-le-stegosaure.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.19.2",
+		"minecraft": "~26.1.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

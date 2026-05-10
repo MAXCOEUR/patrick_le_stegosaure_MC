@@ -1,0 +1,19 @@
+{
+	"entity.patrick-le-stegosaure.patrick": "Patrick",
+	"entity.patrick-le-stegosaure.thierry": "Thierry",
+	"entity.patrick-le-stegosaure.saucisse": "Saucisse",
+	"entity.patrick-le-stegosaure.pouet": "Pouet",
+	"entity.patrick-le-stegosaure.pascal": "Pascal",
+	"entity.patrick-le-stegosaure.pamouk": "Pamouk",
+	"entity.patrick-le-stegosaure.kalash": "Kalash",
+	"entity.patrick-le-stegosaure.brigitte": "Brigitte",
+	"item.patrick-le-stegosaure.patrick_spawn_egg": "Patrick Spawn Egg",
+	"item.patrick-le-stegosaure.thierry_spawn_egg": "Thierry Spawn Egg",
+	"item.patrick-le-stegosaure.saucisse_spawn_egg": "Saucisse Spawn Egg",
+	"item.patrick-le-stegosaure.pouet_spawn_egg": "Pouet Spawn Egg",
+	"item.patrick-le-stegosaure.pascal_spawn_egg": "Pascal Spawn Egg",
+	"item.patrick-le-stegosaure.pamouk_spawn_egg": "Pamouk Spawn Egg",
+	"item.patrick-le-stegosaure.kalash_spawn_egg": "Kalash Spawn Egg",
+	"item.patrick-le-stegosaure.brigitte_spawn_egg": "Brigitte Spawn Egg",
+	"itemGroup.patrick-le-stegosaure": "Patrick le Stegosaure"
+}
