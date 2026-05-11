@@ -15,5 +15,10 @@
 	"item.patrick-le-stegosaure.pamouk_spawn_egg": "Pamouk Spawn Egg",
 	"item.patrick-le-stegosaure.kalash_spawn_egg": "Kalash Spawn Egg",
 	"item.patrick-le-stegosaure.brigitte_spawn_egg": "Brigitte Spawn Egg",
+	"block.patrick-le-stegosaure.patrick_portal_frame": "Patrick Portal Frame",
+	"block.patrick-le-stegosaure.patrick_portal": "Patrick Portal",
+	"item.patrick-le-stegosaure.patrick_portal_frame": "Patrick Portal Frame",
+	"item.patrick-le-stegosaure.patrick_key": "Patrick Key",
+	"item.patrick-le-stegosaure.patrick_episode_2_key": "Episode 2 Key",
 	"itemGroup.patrick-le-stegosaure": "Patrick le Stegosaure"
 }

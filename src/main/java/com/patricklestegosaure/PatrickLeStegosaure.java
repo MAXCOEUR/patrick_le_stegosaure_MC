@@ -2,8 +2,11 @@ package com.patricklestegosaure;
 
 import net.fabricmc.api.ModInitializer;
 
+import com.patricklestegosaure.registry.ModBlocks;
+import com.patricklestegosaure.registry.ModDimensions;
 import com.patricklestegosaure.registry.ModEntityTypes;
 import com.patricklestegosaure.registry.ModItems;
+import com.patricklestegosaure.world.PatrickWorldEvents;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,8 +21,11 @@ public class PatrickLeStegosaure implements ModInitializer {
 
 	@Override
 	public void onInitialize() {
+		ModDimensions.register();
+		ModBlocks.register();
 		ModEntityTypes.register();
 		ModItems.register();
+		PatrickWorldEvents.register();
 
 		LOGGER.info("Patrick and Thierry are ready!");
 	}

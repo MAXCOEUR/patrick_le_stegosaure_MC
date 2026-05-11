@@ -1,0 +1,16 @@
+{
+	"type": "minecraft:block",
+	"pools": [
+		{
+			"bonus_rolls": 0.0,
+			"entries": [
+				{
+					"type": "minecraft:item",
+					"name": "patrick-le-stegosaure:patrick_portal_frame"
+				}
+			],
+			"rolls": 1.0
+		}
+	],
+	"random_sequence": "patrick-le-stegosaure:blocks/patrick_portal_frame"
+}

@@ -1,6 +1,7 @@
 package com.patricklestegosaure.registry;
 
 import com.patricklestegosaure.PatrickLeStegosaure;
+import com.patricklestegosaure.item.PatrickKeyItem;
 
 import net.minecraft.core.Registry;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -35,6 +36,16 @@ public final class ModItems {
 	public static final Item KALASH_SPAWN_EGG = spawnEgg("kalash_spawn_egg", ModEntityTypes.KALASH);
 	public static final Item BRIGITTE_SPAWN_EGG = spawnEgg("brigitte_spawn_egg", ModEntityTypes.BRIGITTE);
 
+	public static final Item PATRICK_KEY = register(
+			"patrick_key",
+			new PatrickKeyItem(new Item.Properties().setId(itemKey("patrick_key")))
+	);
+
+	public static final Item PATRICK_EPISODE_2_KEY = register(
+			"patrick_episode_2_key",
+			new PatrickKeyItem(new Item.Properties().setId(itemKey("patrick_episode_2_key")))
+	);
+
 	public static final CreativeModeTab PATRICK_TAB = Registry.register(
 			BuiltInRegistries.CREATIVE_MODE_TAB,
 			id("patrick_tab"),
@@ -42,6 +53,9 @@ public final class ModItems {
 					.title(Component.translatable("itemGroup.patrick-le-stegosaure"))
 					.icon(() -> new ItemStack(PATRICK_SPAWN_EGG))
 					.displayItems((parameters, output) -> {
+						output.accept(ModBlocks.PATRICK_PORTAL_FRAME);
+						output.accept(PATRICK_KEY);
+						output.accept(PATRICK_EPISODE_2_KEY);
 						output.accept(PATRICK_SPAWN_EGG);
 						output.accept(THIERRY_SPAWN_EGG);
 						output.accept(SAUCISSE_SPAWN_EGG);

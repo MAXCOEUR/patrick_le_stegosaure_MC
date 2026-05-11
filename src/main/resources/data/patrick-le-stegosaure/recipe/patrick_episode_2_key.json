@@ -1,0 +1,18 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "misc",
+	"key": {
+		"D": "minecraft:diamond",
+		"E": "minecraft:emerald",
+		"G": "minecraft:gold_ingot",
+		"R": "minecraft:redstone"
+	},
+	"pattern": [
+		" D ",
+		"ERE",
+		" G "
+	],
+	"result": {
+		"id": "patrick-le-stegosaure:patrick_episode_2_key"
+	}
+}

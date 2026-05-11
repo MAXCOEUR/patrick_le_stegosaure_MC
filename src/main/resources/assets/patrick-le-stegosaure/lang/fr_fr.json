@@ -15,5 +15,10 @@
 	"item.patrick-le-stegosaure.pamouk_spawn_egg": "Oeuf d'apparition de Pamouk",
 	"item.patrick-le-stegosaure.kalash_spawn_egg": "Oeuf d'apparition de Kalash",
 	"item.patrick-le-stegosaure.brigitte_spawn_egg": "Oeuf d'apparition de Brigitte",
-	"itemGroup.patrick-le-stegosaure": "Patrick le Stégosaure"
+	"block.patrick-le-stegosaure.patrick_portal_frame": "Cadre du portail de Patrick",
+	"block.patrick-le-stegosaure.patrick_portal": "Portail de Patrick",
+	"item.patrick-le-stegosaure.patrick_portal_frame": "Cadre du portail de Patrick",
+	"item.patrick-le-stegosaure.patrick_key": "Cle de Patrick",
+	"item.patrick-le-stegosaure.patrick_episode_2_key": "Cle episode 2",
+	"itemGroup.patrick-le-stegosaure": "Patrick le Stegosaure"
 }
