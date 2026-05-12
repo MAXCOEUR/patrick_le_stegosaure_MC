@@ -1,6 +1,7 @@
 package com.patricklestegosaure.item;
 
 import com.patricklestegosaure.block.PatrickPortalBlock;
+import com.patricklestegosaure.block.PatrickPortalBlock.ActivationResult;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -22,11 +23,13 @@ public class PatrickKeyItem extends Item {
 			return InteractionResult.SUCCESS;
 		}
 
-		if (PatrickPortalBlock.tryLightPortal(level, context.getClickedPos())) {
-			return InteractionResult.SUCCESS_SERVER;
-		}
-
 		if (context.getPlayer() instanceof ServerPlayer player) {
+			ActivationResult result = PatrickPortalBlock.tryUseKey(level, context.getClickedPos(), player, this);
+
+			if (result != ActivationResult.INVALID_FRAME) {
+				return result == ActivationResult.LOCKED ? InteractionResult.FAIL : InteractionResult.SUCCESS_SERVER;
+			}
+
 			player.sendSystemMessage(Component.literal("Le cadre du portail de Patrick doit faire 4x5."));
 		}
 

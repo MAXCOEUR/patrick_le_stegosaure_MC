@@ -9,26 +9,33 @@ import com.patricklestegosaure.world.PatrickWorldState;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
+import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.util.StringRepresentable;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.InsideBlockEffectApplier;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Portal;
 import net.minecraft.world.level.block.state.BlockBehaviour;
+import net.minecraft.world.level.block.state.StateDefinition;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.EnumProperty;
 import net.minecraft.world.level.portal.TeleportTransition;
 import net.minecraft.world.phys.Vec3;
 
 public class PatrickPortalBlock extends Block implements Portal {
 	public static final MapCodec<PatrickPortalBlock> CODEC = simpleCodec(PatrickPortalBlock::new);
+	public static final EnumProperty<PortalMode> MODE = EnumProperty.create("mode", PortalMode.class);
 
 	public PatrickPortalBlock(BlockBehaviour.Properties properties) {
 		super(properties);
+		this.registerDefaultState(this.stateDefinition.any().setValue(MODE, PortalMode.LEVEL1));
 	}
 
 	@Override
@@ -53,20 +60,23 @@ public class PatrickPortalBlock extends Block implements Portal {
 		ServerLevel targetLevel;
 		BlockPos destination;
 
-		if (sourceLevel.dimension().equals(ModDimensions.PATRICK_WORLD)) {
+		if (sourceLevel.dimension().equals(ModDimensions.PATRICK_WORLD) || sourceLevel.dimension().equals(ModDimensions.PATRICK_HOME)) {
 			PatrickWorldState state = PatrickWorldState.get(sourceLevel.getServer());
 			targetLevel = sourceLevel.getServer().getLevel(Level.OVERWORLD);
 			destination = state.getOverworldReturnPos();
 		} else {
 			PatrickWorldState state = PatrickWorldState.get(sourceLevel.getServer());
 			state.rememberOverworldReturn(portalPos);
-			targetLevel = sourceLevel.getServer().getLevel(ModDimensions.PATRICK_WORLD);
-			boolean episode2KeyHeld = entity instanceof ServerPlayer player && hasEpisode2Key(player);
-			boolean episode2Unlocked = state.isPouetFreed() && episode2KeyHeld;
-			destination = episode2Unlocked ? PatrickWorldEvents.EPISODE2_ARRIVAL : PatrickWorldEvents.HUB_ARRIVAL;
+			PortalMode mode = getPortalMode(sourceLevel.getBlockState(portalPos));
+			boolean homePortal = mode == PortalMode.HOME;
+			boolean episode2Unlocked = mode == PortalMode.LEVEL2 && state.isPouetFreed();
+			targetLevel = sourceLevel.getServer().getLevel(homePortal ? ModDimensions.PATRICK_HOME : ModDimensions.PATRICK_WORLD);
+			destination = homePortal ? PatrickWorldEvents.HOME_ARRIVAL : episode2Unlocked ? PatrickWorldEvents.EPISODE2_ARRIVAL : PatrickWorldEvents.HUB_ARRIVAL;
 
 			if (targetLevel != null) {
-				if (episode2Unlocked) {
+				if (homePortal) {
+					PatrickWorldEvents.ensureHome(targetLevel);
+				} else if (episode2Unlocked) {
 					PatrickWorldEvents.ensureEpisode2(targetLevel);
 				} else {
 					PatrickWorldEvents.ensureHub(targetLevel);
@@ -85,7 +95,7 @@ public class PatrickPortalBlock extends Block implements Portal {
 				entity.getYRot(),
 				entity.getXRot(),
 				TeleportTransition.PLAY_PORTAL_SOUND.then(teleportedEntity -> {
-					if (teleportedEntity instanceof ServerPlayer player) {
+					if (teleportedEntity instanceof ServerPlayer player && (player.level().dimension().equals(ModDimensions.PATRICK_WORLD) || player.level().dimension().equals(ModDimensions.PATRICK_HOME))) {
 						PatrickWorldEvents.syncPatrickWithPlayer(player);
 					}
 				})
@@ -97,7 +107,19 @@ public class PatrickPortalBlock extends Block implements Portal {
 		return Portal.Transition.CONFUSION;
 	}
 
-	public static boolean tryLightPortal(Level level, BlockPos clickedPos) {
+	@Override
+	protected void createBlockStateDefinition(StateDefinition.Builder<Block, BlockState> builder) {
+		builder.add(MODE);
+	}
+
+	public static ActivationResult tryUseKey(Level level, BlockPos clickedPos, ServerPlayer player, Item key) {
+		PortalMode targetMode = getModeForKey(key);
+
+		if (targetMode == PortalMode.LEVEL2 && !PatrickWorldState.get(player.level().getServer()).isPouetFreed()) {
+			player.sendSystemMessage(Component.literal("Impossible : il faut d'abord finir le niveau 1 et sauver Pouet."));
+			return ActivationResult.LOCKED;
+		}
+
 		for (Direction.Axis axis : new Direction.Axis[] { Direction.Axis.X, Direction.Axis.Z }) {
 			Direction widthDirection = axis == Direction.Axis.X ? Direction.EAST : Direction.SOUTH;
 
@@ -106,15 +128,40 @@ public class PatrickPortalBlock extends Block implements Portal {
 					BlockPos base = clickedPos.relative(widthDirection, -widthOffset).below(heightOffset);
 
 					if (isCompleteFrame(level, base, widthDirection)) {
-						lightInterior(level, base, widthDirection);
+						PortalMode previousMode = getPortalMode(level, base, widthDirection);
+						boolean wasLit = isLitPortal(level, base, widthDirection);
+						lightInterior(level, base, widthDirection, targetMode);
 						level.playSound(null, clickedPos, SoundEvents.END_PORTAL_FRAME_FILL, SoundSource.BLOCKS, 1.0F, 1.0F);
-						return true;
+
+						if (targetMode == PortalMode.LEVEL2 && previousMode != PortalMode.LEVEL2) {
+							player.sendSystemMessage(Component.literal("Le portail passe au niveau 2 !"));
+							return ActivationResult.UPGRADED;
+						}
+
+						if (targetMode == PortalMode.HOME && previousMode != PortalMode.HOME) {
+							player.sendSystemMessage(Component.literal("Le portail mene maintenant a la maison de Patrick !"));
+							return ActivationResult.UPGRADED;
+						}
+
+						return wasLit ? ActivationResult.ALREADY_LIT : ActivationResult.LIT;
 					}
 				}
 			}
 		}
 
-		return false;
+		return ActivationResult.INVALID_FRAME;
+	}
+
+	private static PortalMode getModeForKey(Item key) {
+		if (key == ModItems.PATRICK_EPISODE_2_KEY) {
+			return PortalMode.LEVEL2;
+		}
+
+		if (key == ModItems.PATRICK_HOME_KEY) {
+			return PortalMode.HOME;
+		}
+
+		return PortalMode.LEVEL1;
 	}
 
 	private static boolean isCompleteFrame(Level level, BlockPos base, Direction widthDirection) {
@@ -137,8 +184,8 @@ public class PatrickPortalBlock extends Block implements Portal {
 		return true;
 	}
 
-	private static void lightInterior(Level level, BlockPos base, Direction widthDirection) {
-		BlockState portalState = ModBlocks.PATRICK_PORTAL.defaultBlockState();
+	private static void lightInterior(Level level, BlockPos base, Direction widthDirection, PortalMode mode) {
+		BlockState portalState = ModBlocks.PATRICK_PORTAL.defaultBlockState().setValue(MODE, mode);
 
 		for (int width = 1; width <= 2; width++) {
 			for (int height = 1; height <= 3; height++) {
@@ -147,8 +194,58 @@ public class PatrickPortalBlock extends Block implements Portal {
 		}
 	}
 
-	private static boolean hasEpisode2Key(ServerPlayer player) {
-		return player.getMainHandItem().getItem() == ModItems.PATRICK_EPISODE_2_KEY
-				|| player.getOffhandItem().getItem() == ModItems.PATRICK_EPISODE_2_KEY;
+	private static boolean isLitPortal(Level level, BlockPos base, Direction widthDirection) {
+		for (int width = 1; width <= 2; width++) {
+			for (int height = 1; height <= 3; height++) {
+				if (level.getBlockState(base.relative(widthDirection, width).above(height)).is(ModBlocks.PATRICK_PORTAL)) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	public static PortalMode getPortalMode(Level level, BlockPos base, Direction widthDirection) {
+		for (int width = 1; width <= 2; width++) {
+			for (int height = 1; height <= 3; height++) {
+				BlockState state = level.getBlockState(base.relative(widthDirection, width).above(height));
+
+				if (state.is(ModBlocks.PATRICK_PORTAL)) {
+					return getPortalMode(state);
+				}
+			}
+		}
+
+		return PortalMode.LEVEL1;
+	}
+
+	private static PortalMode getPortalMode(BlockState state) {
+		return state.is(ModBlocks.PATRICK_PORTAL) ? state.getValue(MODE) : PortalMode.LEVEL1;
+	}
+
+	public enum ActivationResult {
+		LIT,
+		ALREADY_LIT,
+		UPGRADED,
+		LOCKED,
+		INVALID_FRAME
+	}
+
+	public enum PortalMode implements StringRepresentable {
+		LEVEL1("level1"),
+		LEVEL2("level2"),
+		HOME("home");
+
+		private final String name;
+
+		PortalMode(String name) {
+			this.name = name;
+		}
+
+		@Override
+		public String getSerializedName() {
+			return name;
+		}
 	}
 }

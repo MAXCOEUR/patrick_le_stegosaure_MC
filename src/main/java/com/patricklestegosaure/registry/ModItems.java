@@ -46,6 +46,11 @@ public final class ModItems {
 			new PatrickKeyItem(new Item.Properties().setId(itemKey("patrick_episode_2_key")))
 	);
 
+	public static final Item PATRICK_HOME_KEY = register(
+			"patrick_home_key",
+			new PatrickKeyItem(new Item.Properties().setId(itemKey("patrick_home_key")))
+	);
+
 	public static final CreativeModeTab PATRICK_TAB = Registry.register(
 			BuiltInRegistries.CREATIVE_MODE_TAB,
 			id("patrick_tab"),
@@ -56,6 +61,7 @@ public final class ModItems {
 						output.accept(ModBlocks.PATRICK_PORTAL_FRAME);
 						output.accept(PATRICK_KEY);
 						output.accept(PATRICK_EPISODE_2_KEY);
+						output.accept(PATRICK_HOME_KEY);
 						output.accept(PATRICK_SPAWN_EGG);
 						output.accept(THIERRY_SPAWN_EGG);
 						output.accept(SAUCISSE_SPAWN_EGG);

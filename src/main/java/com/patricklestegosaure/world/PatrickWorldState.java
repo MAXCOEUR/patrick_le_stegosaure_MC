@@ -22,6 +22,7 @@ public class PatrickWorldState extends SavedData {
 			Codec.BOOL.optionalFieldOf("pascal_defeated", false).forGetter(state -> state.pascalDefeated),
 			Codec.BOOL.optionalFieldOf("fox_freed", false).forGetter(state -> state.foxFreed),
 			Codec.BOOL.optionalFieldOf("thierry_helped_pascal_fight", false).forGetter(state -> state.thierryHelpedPascalFight),
+			Codec.BOOL.optionalFieldOf("home_built", false).forGetter(state -> state.homeBuilt),
 			Codec.INT.optionalFieldOf("return_x", 0).forGetter(state -> state.returnX),
 			Codec.INT.optionalFieldOf("return_y", 80).forGetter(state -> state.returnY),
 			Codec.INT.optionalFieldOf("return_z", 0).forGetter(state -> state.returnZ)
@@ -43,15 +44,16 @@ public class PatrickWorldState extends SavedData {
 	private boolean pascalDefeated;
 	private boolean foxFreed;
 	private boolean thierryHelpedPascalFight;
+	private boolean homeBuilt;
 	private int returnX;
 	private int returnY;
 	private int returnZ;
 
 	public PatrickWorldState() {
-		this(false, false, false, false, false, false, false, false, false, 0, 80, 0);
+		this(false, false, false, false, false, false, false, false, false, false, 0, 80, 0);
 	}
 
-	public PatrickWorldState(boolean hubBuilt, boolean arenaStarted, boolean pouetFreed, boolean episode2Built, boolean meteoriteReturned, boolean pascalStarted, boolean pascalDefeated, boolean foxFreed, boolean thierryHelpedPascalFight, int returnX, int returnY, int returnZ) {
+	public PatrickWorldState(boolean hubBuilt, boolean arenaStarted, boolean pouetFreed, boolean episode2Built, boolean meteoriteReturned, boolean pascalStarted, boolean pascalDefeated, boolean foxFreed, boolean thierryHelpedPascalFight, boolean homeBuilt, int returnX, int returnY, int returnZ) {
 		this.hubBuilt = hubBuilt;
 		this.arenaStarted = arenaStarted;
 		this.pouetFreed = pouetFreed;
@@ -61,6 +63,7 @@ public class PatrickWorldState extends SavedData {
 		this.pascalDefeated = pascalDefeated;
 		this.foxFreed = foxFreed;
 		this.thierryHelpedPascalFight = thierryHelpedPascalFight;
+		this.homeBuilt = homeBuilt;
 		this.returnX = returnX;
 		this.returnY = returnY;
 		this.returnZ = returnZ;
@@ -165,6 +168,17 @@ public class PatrickWorldState extends SavedData {
 	public void setThierryHelpedPascalFight(boolean thierryHelpedPascalFight) {
 		if (this.thierryHelpedPascalFight != thierryHelpedPascalFight) {
 			this.thierryHelpedPascalFight = thierryHelpedPascalFight;
+			setDirty();
+		}
+	}
+
+	public boolean isHomeBuilt() {
+		return homeBuilt;
+	}
+
+	public void setHomeBuilt(boolean homeBuilt) {
+		if (this.homeBuilt != homeBuilt) {
+			this.homeBuilt = homeBuilt;
 			setDirty();
 		}
 	}

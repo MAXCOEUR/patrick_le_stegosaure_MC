@@ -1,0 +1,18 @@
+{
+	"type": "minecraft:crafting_shaped",
+	"category": "misc",
+	"key": {
+		"E": "minecraft:emerald",
+		"F": "minecraft:campfire",
+		"G": "minecraft:gold_ingot",
+		"P": "minecraft:oak_planks"
+	},
+	"pattern": [
+		" E ",
+		"GFG",
+		" P "
+	],
+	"result": {
+		"id": "patrick-le-stegosaure:patrick_home_key"
+	}
+}

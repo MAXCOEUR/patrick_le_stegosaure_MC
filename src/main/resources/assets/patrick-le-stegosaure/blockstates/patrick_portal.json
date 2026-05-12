@@ -1,7 +1,13 @@
 {
 	"variants": {
-		"": {
-			"model": "patrick-le-stegosaure:block/patrick_portal"
+		"mode=level1": {
+			"model": "patrick-le-stegosaure:block/patrick_portal_level_1"
+		},
+		"mode=level2": {
+			"model": "patrick-le-stegosaure:block/patrick_portal_level_2"
+		},
+		"mode=home": {
+			"model": "patrick-le-stegosaure:block/patrick_portal_home"
 		}
 	}
 }

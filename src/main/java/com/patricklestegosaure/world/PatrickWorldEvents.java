@@ -3,7 +3,10 @@ package com.patricklestegosaure.world;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
+import com.patricklestegosaure.block.PatrickPortalBlock;
+import com.patricklestegosaure.block.PatrickPortalBlock.PortalMode;
 import com.patricklestegosaure.entity.PatrickEntity;
 import com.patricklestegosaure.entity.PascalEntity;
 import com.patricklestegosaure.entity.PouetEntity;
@@ -13,17 +16,29 @@ import com.patricklestegosaure.registry.ModBlocks;
 import com.patricklestegosaure.registry.ModDimensions;
 import com.patricklestegosaure.registry.ModEntityTypes;
 
+import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.effect.MobEffectInstance;
+import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EntitySpawnReason;
 import net.minecraft.world.entity.animal.fox.Fox;
+import net.minecraft.world.entity.animal.chicken.Chicken;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
@@ -50,17 +65,39 @@ public final class PatrickWorldEvents {
 	public static final BlockPos FRIENDLY_THIERRY_SPAWN = new BlockPos(153, HUB_Y, 82);
 	public static final BlockPos FOX_CAGE = new BlockPos(166, HUB_Y, 88);
 	public static final BlockPos FOX_FREED = new BlockPos(170, HUB_Y, 88);
+	public static final BlockPos HOME_ARRIVAL = new BlockPos(0, HUB_Y, 0);
+	public static final BlockPos HOME_PORTAL_BASE = new BlockPos(-1, HUB_Y, -8);
+	public static final BlockPos HOME_HOUSE_CENTER = new BlockPos(0, HUB_Y, 18);
+	public static final BlockPos HOME_BBQ = new BlockPos(-14, HUB_Y, 8);
+	public static final BlockPos HOME_LEVEL_BOARD = new BlockPos(10, HUB_Y, 18);
+	public static final BlockPos HOME_PATRICK = new BlockPos(-6, HUB_Y, 6);
+	public static final BlockPos HOME_SAUCISSE = new BlockPos(-3, HUB_Y, 5);
+	public static final BlockPos HOME_POUET = new BlockPos(3, HUB_Y, 5);
+	public static final BlockPos HOME_THIERRY = new BlockPos(8, HUB_Y, 4);
+	public static final BlockPos HOME_FOX = new BlockPos(12, HUB_Y, 5);
 
 	private static final AABB ARENA_TRIGGER = new AABB(-12, HUB_Y - 4, 38, 12, HUB_Y + 8, 64);
 	private static final AABB EPISODE2_AREA = new AABB(130, HUB_Y - 8, -20, 190, HUB_Y + 12, 112);
 	private static final AABB METEORITE_TRIGGER = new AABB(150, HUB_Y - 4, 15, 170, HUB_Y + 8, 35);
 	private static final AABB CASTLE_TRIGGER = new AABB(146, HUB_Y - 4, 68, 174, HUB_Y + 8, 96);
+	private static final AABB HOME_BOARD_AREA = new AABB(8, HUB_Y - 1, 15, 14, HUB_Y + 4, 22);
+	private static final Map<Item, Item> BBQ_RECIPES = Map.of(
+			Items.BEEF, Items.COOKED_BEEF,
+			Items.PORKCHOP, Items.COOKED_PORKCHOP,
+			Items.CHICKEN, Items.COOKED_CHICKEN,
+			Items.MUTTON, Items.COOKED_MUTTON,
+			Items.RABBIT, Items.COOKED_RABBIT,
+			Items.COD, Items.COOKED_COD,
+			Items.SALMON, Items.COOKED_SALMON,
+			Items.POTATO, Items.BAKED_POTATO
+	);
 
 	private PatrickWorldEvents() {
 	}
 
 	public static void register() {
 		ServerTickEvents.END_LEVEL_TICK.register(PatrickWorldEvents::tickLevel);
+		UseBlockCallback.EVENT.register(PatrickWorldEvents::onUseBlock);
 	}
 
 	public static void ensureHub(ServerLevel level) {
@@ -84,6 +121,18 @@ public final class PatrickWorldEvents {
 		level.getChunkAt(EPISODE2_ARRIVAL);
 		buildEpisode2(level, state);
 		state.setEpisode2Built(true);
+	}
+
+	public static void ensureHome(ServerLevel level) {
+		if (!level.dimension().equals(ModDimensions.PATRICK_HOME)) {
+			return;
+		}
+
+		PatrickWorldState state = PatrickWorldState.get(level.getServer());
+		level.getChunkAt(HOME_ARRIVAL);
+		buildHome(level, state);
+		ensureHomeFriends(level, state);
+		state.setHomeBuilt(true);
 	}
 
 	public static void onThierryDefeated(ServerLevel level) {
@@ -119,6 +168,11 @@ public final class PatrickWorldEvents {
 
 	public static void syncPatrickWithPlayer(ServerPlayer player) {
 		ServerLevel targetLevel = player.level();
+
+		if (!targetLevel.dimension().equals(ModDimensions.PATRICK_WORLD)) {
+			return;
+		}
+
 		BlockPos companionPos = player.blockPosition().offset(2, 0, 2);
 		targetLevel.getChunkAt(companionPos);
 
@@ -140,8 +194,76 @@ public final class PatrickWorldEvents {
 		}
 	}
 
+	private static InteractionResult onUseBlock(Player player, net.minecraft.world.level.Level level, InteractionHand hand, net.minecraft.world.phys.BlockHitResult hitResult) {
+		if (level.isClientSide() || !(level instanceof ServerLevel serverLevel) || !(player instanceof ServerPlayer serverPlayer)) {
+			return InteractionResult.PASS;
+		}
+
+		if (!serverLevel.dimension().equals(ModDimensions.PATRICK_HOME)) {
+			return InteractionResult.PASS;
+		}
+
+		BlockPos clicked = hitResult.getBlockPos();
+
+		if (clicked.equals(HOME_BBQ)) {
+			return handleBbqUse(serverLevel, serverPlayer, hand);
+		}
+
+		if (HOME_BOARD_AREA.contains(clicked.getCenter())) {
+			sendLevelBoard(serverPlayer, PatrickWorldState.get(serverLevel.getServer()));
+			return InteractionResult.SUCCESS_SERVER;
+		}
+
+		return InteractionResult.PASS;
+	}
+
+	private static InteractionResult handleBbqUse(ServerLevel level, ServerPlayer player, InteractionHand hand) {
+		ItemStack held = player.getItemInHand(hand);
+		Item cooked = BBQ_RECIPES.get(held.getItem());
+
+		if (cooked == null) {
+			player.sendSystemMessage(Component.literal("Le BBQ de Patrick veut de la nourriture crue."));
+			return InteractionResult.FAIL;
+		}
+
+		if (!player.isCreative()) {
+			held.shrink(1);
+		}
+
+		ItemStack cookedStack = new ItemStack(cooked);
+
+		if (!player.addItem(cookedStack)) {
+			player.drop(cookedStack, false);
+		}
+
+		player.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 80, 0));
+		level.playSound(null, HOME_BBQ, SoundEvents.CAMPFIRE_CRACKLE, SoundSource.BLOCKS, 1.0F, 1.0F);
+		level.playSound(null, HOME_BBQ, SoundEvents.PLAYER_LEVELUP, SoundSource.PLAYERS, 0.45F, 1.6F);
+		level.sendParticles(ParticleTypes.CAMPFIRE_COSY_SMOKE, HOME_BBQ.getX() + 0.5D, HOME_BBQ.getY() + 1.2D, HOME_BBQ.getZ() + 0.5D, 12, 0.3D, 0.25D, 0.3D, 0.01D);
+		level.sendParticles(ParticleTypes.FLAME, HOME_BBQ.getX() + 0.5D, HOME_BBQ.getY() + 0.8D, HOME_BBQ.getZ() + 0.5D, 8, 0.2D, 0.1D, 0.2D, 0.02D);
+		sendBbqFriendReaction(player, PatrickWorldState.get(level.getServer()));
+		return InteractionResult.SUCCESS_SERVER;
+	}
+
+	private static void sendBbqFriendReaction(ServerPlayer player, PatrickWorldState state) {
+		if (state.isFoxFreed()) {
+			player.sendSystemMessage(Component.literal("Le petit renard tourne autour du BBQ. Il a l'air content."));
+		} else if (state.isPouetFreed()) {
+			player.sendSystemMessage(Component.literal("Pouet profite enfin du BBQ avec Patrick."));
+		} else {
+			player.sendSystemMessage(Component.literal("Patrick garde une place pour les amis a sauver."));
+		}
+	}
+
+	private static void sendLevelBoard(ServerPlayer player, PatrickWorldState state) {
+		player.sendSystemMessage(Component.literal("Maison de Patrick - niveaux"));
+		player.sendSystemMessage(Component.literal("Niveau 1 - Sauver Pouet : " + (state.isPouetFreed() ? "termine" : "disponible")));
+		player.sendSystemMessage(Component.literal("Niveau 2 - Meteorite et Pascal : " + (state.isPascalDefeated() ? "termine" : state.isPouetFreed() ? "disponible" : "bloque")));
+		player.sendSystemMessage(Component.literal("Niveau 3 - Bientot : bloque"));
+	}
+
 	private static void tickLevel(ServerLevel level) {
-		if (!level.dimension().equals(ModDimensions.PATRICK_WORLD) || level.getGameTime() % 20 != 0) {
+		if (level.getGameTime() % 20 != 0) {
 			return;
 		}
 
@@ -150,6 +272,19 @@ public final class PatrickWorldEvents {
 		}
 
 		PatrickWorldState state = PatrickWorldState.get(level.getServer());
+
+		if (level.dimension().equals(ModDimensions.PATRICK_HOME)) {
+			if (!state.isHomeBuilt()) {
+				ensureHome(level);
+			}
+
+			ensureHomeFriends(level, state);
+			return;
+		}
+
+		if (!level.dimension().equals(ModDimensions.PATRICK_WORLD)) {
+			return;
+		}
 
 		if (!state.isHubBuilt()) {
 			ensureHub(level);
@@ -280,6 +415,68 @@ public final class PatrickWorldEvents {
 		}
 	}
 
+	private static void ensureHomeFriends(ServerLevel level, PatrickWorldState state) {
+		PatrickEntity patrick = keepOne(getEntities(level, PatrickEntity.class), HOME_PATRICK);
+
+		if (patrick == null) {
+			patrick = ModEntityTypes.PATRICK.spawn(level, HOME_PATRICK, EntitySpawnReason.EVENT);
+		}
+
+		if (patrick != null) {
+			preparePatrick(patrick);
+		}
+
+		SaucisseEntity saucisse = keepOne(getEntities(level, SaucisseEntity.class), HOME_SAUCISSE);
+
+		if (saucisse == null) {
+			saucisse = ModEntityTypes.SAUCISSE.spawn(level, HOME_SAUCISSE, EntitySpawnReason.EVENT);
+		}
+
+		if (saucisse != null) {
+			saucisse.setPersistenceRequired();
+		}
+
+		if (state.isPouetFreed()) {
+			PouetEntity pouet = keepOne(getEntities(level, PouetEntity.class), HOME_POUET);
+
+			if (pouet == null) {
+				pouet = ModEntityTypes.POUET.spawn(level, HOME_POUET, EntitySpawnReason.EVENT);
+			}
+
+			if (pouet != null) {
+				pouet.setNoAi(false);
+				pouet.setPersistenceRequired();
+			}
+		}
+
+		if (state.hasThierryHelpedPascalFight()) {
+			ThierryEntity thierry = keepOne(getEntities(level, ThierryEntity.class), HOME_THIERRY);
+
+			if (thierry == null) {
+				thierry = ModEntityTypes.THIERRY.spawn(level, HOME_THIERRY, EntitySpawnReason.EVENT);
+			}
+
+			if (thierry != null) {
+				thierry.setFriendly(true);
+				thierry.setPersistenceRequired();
+			}
+		}
+
+		if (state.isFoxFreed()) {
+			Fox fox = keepOne(getEntities(level, Fox.class), HOME_FOX);
+
+			if (fox == null) {
+				fox = EntityType.FOX.spawn(level, HOME_FOX, EntitySpawnReason.EVENT);
+			}
+
+			if (fox != null) {
+				fox.setCustomName(Component.literal("Petit renard"));
+				fox.setCustomNameVisible(true);
+				fox.setPersistenceRequired();
+			}
+		}
+	}
+
 	private static void ensureCaptivePouet(ServerLevel level) {
 		buildPouetCage(level);
 		List<PouetEntity> pouets = getEntities(level, PouetEntity.class);
@@ -373,8 +570,8 @@ public final class PatrickWorldEvents {
 	}
 
 	private static void buildHub(ServerLevel level) {
-		for (int x = -10; x <= 10; x++) {
-			for (int z = -10; z <= 66; z++) {
+		for (int x = -24; x <= 24; x++) {
+			for (int z = -16; z <= 72; z++) {
 				BlockPos ground = new BlockPos(x, HUB_Y - 1, z);
 				boolean path = Math.abs(x) <= 1 && z >= -6 && z <= 54;
 				boolean arena = x * x + (z - ARENA_CENTER.getZ()) * (z - ARENA_CENTER.getZ()) <= 100;
@@ -391,6 +588,7 @@ public final class PatrickWorldEvents {
 
 		buildPortal(level, RETURN_PORTAL_BASE);
 		buildSimpleTrees(level);
+		buildDenseLevelOneForest(level);
 		buildForestArenaDecorations(level);
 		buildPouetCage(level);
 	}
@@ -430,12 +628,167 @@ public final class PatrickWorldEvents {
 		}
 	}
 
+	private static void buildHome(ServerLevel level, PatrickWorldState state) {
+		for (int x = -32; x <= 32; x++) {
+			for (int z = -18; z <= 42; z++) {
+				BlockPos ground = new BlockPos(x, HUB_Y - 1, z);
+				boolean path = Math.abs(x) <= 2 && z >= -10 && z <= 20;
+				boolean patio = x >= -20 && x <= -8 && z >= 2 && z <= 14;
+				BlockState top = path || patio ? Blocks.COARSE_DIRT.defaultBlockState() : Blocks.GRASS_BLOCK.defaultBlockState();
+
+				level.setBlock(ground.below(), Blocks.DIRT.defaultBlockState(), Block.UPDATE_ALL);
+				level.setBlock(ground, top, Block.UPDATE_ALL);
+
+				for (int y = 1; y <= 8; y++) {
+					level.setBlock(ground.above(y), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+				}
+			}
+		}
+
+		buildPortal(level, HOME_PORTAL_BASE, PortalMode.HOME);
+		buildPatrickHouse(level);
+		buildBbqArea(level);
+		buildLevelBoard(level, state);
+		buildHomePrairie(level);
+		buildBackgroundMountains(level);
+	}
+
+	private static void buildPatrickHouse(ServerLevel level) {
+		BlockPos center = HOME_HOUSE_CENTER;
+
+		for (int x = -7; x <= 7; x++) {
+			for (int z = -6; z <= 6; z++) {
+				BlockPos floor = center.offset(x, -1, z);
+				level.setBlock(floor, Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+
+				boolean wall = Math.abs(x) == 7 || Math.abs(z) == 6;
+				boolean door = z == -6 && Math.abs(x) <= 1;
+
+				if (wall && !door) {
+					for (int y = 0; y <= 4; y++) {
+						level.setBlock(center.offset(x, y, z), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+					}
+				}
+			}
+		}
+
+		for (int x = -8; x <= 8; x++) {
+			for (int z = -7; z <= 7; z++) {
+				if (Math.abs(x) + Math.abs(z) <= 15) {
+					level.setBlock(center.offset(x, 5, z), Blocks.RED_TERRACOTTA.defaultBlockState(), Block.UPDATE_ALL);
+				}
+			}
+		}
+
+		for (BlockPos window : new BlockPos[] { center.offset(-7, 2, -2), center.offset(7, 2, -2), center.offset(-3, 2, 6), center.offset(3, 2, 6) }) {
+			level.setBlock(window, Blocks.GLASS.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		level.setBlock(center.offset(0, 0, -6), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(center.offset(0, 1, -6), Blocks.AIR.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(center.offset(0, 0, -8), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(center.offset(-1, 0, -8), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(center.offset(1, 0, -8), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+	}
+
+	private static void buildBbqArea(ServerLevel level) {
+		level.setBlock(HOME_BBQ.below(), Blocks.BLACKSTONE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(HOME_BBQ, Blocks.SMOKER.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(HOME_BBQ.above(), Blocks.CAMPFIRE.defaultBlockState(), Block.UPDATE_ALL);
+
+		for (Direction direction : Direction.Plane.HORIZONTAL) {
+			level.setBlock(HOME_BBQ.relative(direction), Blocks.IRON_BARS.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		buildPicnicTable(level, new BlockPos(-9, HUB_Y, 8));
+		buildPicnicTable(level, new BlockPos(-18, HUB_Y, 13));
+
+		Chicken chicken = getEntities(level, Chicken.class).stream().findFirst().orElse(null);
+
+		if (chicken == null) {
+			chicken = EntityType.CHICKEN.spawn(level, new BlockPos(-10, HUB_Y, 11), EntitySpawnReason.EVENT);
+		}
+
+		if (chicken != null) {
+			chicken.setPersistenceRequired();
+		}
+	}
+
+	private static void buildPicnicTable(ServerLevel level, BlockPos center) {
+		for (int x = -2; x <= 2; x++) {
+			level.setBlock(center.offset(x, 0, 0), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+			level.setBlock(center.offset(x, -1, -1), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+			level.setBlock(center.offset(x, -1, 1), Blocks.OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+		}
+
+		level.setBlock(center.offset(-2, -1, 0), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(center.offset(2, -1, 0), Blocks.OAK_FENCE.defaultBlockState(), Block.UPDATE_ALL);
+	}
+
+	private static void buildLevelBoard(ServerLevel level, PatrickWorldState state) {
+		for (int x = 0; x <= 4; x++) {
+			for (int y = 0; y <= 3; y++) {
+				level.setBlock(HOME_LEVEL_BOARD.offset(x, y, 0), Blocks.DARK_OAK_PLANKS.defaultBlockState(), Block.UPDATE_ALL);
+			}
+		}
+
+		level.setBlock(HOME_LEVEL_BOARD.offset(0, 1, -1), (state.isPouetFreed() ? Blocks.EMERALD_BLOCK : Blocks.GOLD_BLOCK).defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(HOME_LEVEL_BOARD.offset(2, 1, -1), (state.isPascalDefeated() ? Blocks.EMERALD_BLOCK : state.isPouetFreed() ? Blocks.GOLD_BLOCK : Blocks.REDSTONE_BLOCK).defaultBlockState(), Block.UPDATE_ALL);
+		level.setBlock(HOME_LEVEL_BOARD.offset(4, 1, -1), Blocks.REDSTONE_BLOCK.defaultBlockState(), Block.UPDATE_ALL);
+	}
+
+	private static void buildHomePrairie(ServerLevel level) {
+		for (BlockPos tree : new BlockPos[] {
+				new BlockPos(-26, HUB_Y, -8),
+				new BlockPos(26, HUB_Y, -6),
+				new BlockPos(-27, HUB_Y, 32),
+				new BlockPos(25, HUB_Y, 35),
+				new BlockPos(18, HUB_Y, 5)
+		}) {
+			placeTree(level, tree);
+		}
+
+		for (int x = -28; x <= 28; x += 7) {
+			for (int z = -12; z <= 36; z += 8) {
+				BlockPos flower = new BlockPos(x, HUB_Y, z);
+				level.setBlock(flower, ((x + z) % 2 == 0 ? Blocks.DANDELION : Blocks.POPPY).defaultBlockState(), Block.UPDATE_ALL);
+			}
+		}
+	}
+
+	private static void buildBackgroundMountains(ServerLevel level) {
+		for (int peak = 0; peak < 3; peak++) {
+			int centerX = -22 + peak * 22;
+			int baseZ = 40;
+			int height = 7 + peak * 2;
+
+			for (int y = 0; y <= height; y++) {
+				int radius = Math.max(1, height - y);
+
+				for (int x = -radius; x <= radius; x++) {
+					for (int z = -radius; z <= radius; z++) {
+						if (Math.abs(x) + Math.abs(z) <= radius) {
+							BlockState block = y >= height - 1 ? Blocks.SNOW_BLOCK.defaultBlockState() : Blocks.TERRACOTTA.defaultBlockState();
+							level.setBlock(new BlockPos(centerX + x, HUB_Y + y - 1, baseZ + z), block, Block.UPDATE_ALL);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	private static void buildPortal(ServerLevel level, BlockPos base) {
+		buildPortal(level, base, PortalMode.LEVEL1);
+	}
+
+	private static void buildPortal(ServerLevel level, BlockPos base, PortalMode mode) {
+		BlockState portalState = ModBlocks.PATRICK_PORTAL.defaultBlockState().setValue(PatrickPortalBlock.MODE, mode);
+
 		for (int width = 0; width < 4; width++) {
 			for (int height = 0; height < 5; height++) {
 				BlockPos pos = base.east(width).above(height);
 				boolean border = width == 0 || width == 3 || height == 0 || height == 4;
-				level.setBlock(pos, (border ? ModBlocks.PATRICK_PORTAL_FRAME : ModBlocks.PATRICK_PORTAL).defaultBlockState(), Block.UPDATE_ALL);
+				level.setBlock(pos, border ? ModBlocks.PATRICK_PORTAL_FRAME.defaultBlockState() : portalState, Block.UPDATE_ALL);
 			}
 		}
 	}
@@ -503,6 +856,30 @@ public final class PatrickWorldEvents {
 		placeTree(level, new BlockPos(7, HUB_Y, 22));
 		placeTree(level, new BlockPos(-8, HUB_Y, 38));
 		placeTree(level, new BlockPos(8, HUB_Y, 60));
+	}
+
+	private static void buildDenseLevelOneForest(ServerLevel level) {
+		for (int x = -22; x <= 22; x += 6) {
+			for (int z = -10; z <= 70; z += 8) {
+				boolean keepPathOpen = Math.abs(x) <= 4 && z >= -6 && z <= 58;
+				boolean keepArenaOpen = x * x + (z - ARENA_CENTER.getZ()) * (z - ARENA_CENTER.getZ()) <= 144;
+				boolean keepCageOpen = Math.abs(x - POUET_CAGE.getX()) <= 4 && Math.abs(z - POUET_CAGE.getZ()) <= 4;
+
+				if (!keepPathOpen && !keepArenaOpen && !keepCageOpen) {
+					placeTree(level, new BlockPos(x, HUB_Y, z));
+				}
+			}
+		}
+
+		for (int x = -20; x <= 20; x += 5) {
+			for (int z = -8; z <= 68; z += 7) {
+				if (Math.abs(x) > 3) {
+					BlockPos bush = new BlockPos(x + ((z / 7) % 2), HUB_Y, z);
+					level.setBlock(bush, Blocks.OAK_LEAVES.defaultBlockState(), Block.UPDATE_ALL);
+					level.setBlock(bush.above(), Blocks.OAK_LEAVES.defaultBlockState(), Block.UPDATE_ALL);
+				}
+			}
+		}
 	}
 
 	private static void buildForestArenaDecorations(ServerLevel level) {

@@ -2,6 +2,8 @@ package com.patricklestegosaure.entity;
 
 import java.util.List;
 
+import com.patricklestegosaure.registry.ModDimensions;
+
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.damagesource.DamageSource;
@@ -48,6 +50,10 @@ public class PatrickEntity extends PathfinderMob {
 	protected void customServerAiStep(ServerLevel level) {
 		super.customServerAiStep(level);
 		this.refreshCompanionStats();
+
+		if (!level.dimension().equals(ModDimensions.PATRICK_WORLD) && !level.dimension().equals(ModDimensions.PATRICK_HOME)) {
+			return;
+		}
 
 		if (this.tickCount % 10 != 0) {
 			return;

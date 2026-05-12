@@ -14,9 +14,19 @@ public final class ModDimensions {
 			id("patrick_world")
 	);
 
+	public static final ResourceKey<Level> PATRICK_HOME = ResourceKey.create(
+			Registries.DIMENSION,
+			id("patrick_home")
+	);
+
 	public static final ResourceKey<DimensionType> PATRICK_WORLD_TYPE = ResourceKey.create(
 			Registries.DIMENSION_TYPE,
 			id("patrick_world")
+	);
+
+	public static final ResourceKey<DimensionType> PATRICK_HOME_TYPE = ResourceKey.create(
+			Registries.DIMENSION_TYPE,
+			id("patrick_home")
 	);
 
 	private ModDimensions() {
